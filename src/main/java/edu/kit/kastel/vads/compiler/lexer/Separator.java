@@ -15,11 +15,7 @@ public record Separator(SeparatorType type, Span span) implements Token {
     }
 
     public enum SeparatorType {
-        PAREN_OPEN("("),
-        PAREN_CLOSE(")"),
-        BRACE_OPEN("{"),
-        BRACE_CLOSE("}"),
-        SEMICOLON(";");
+        PAREN_OPEN("("), PAREN_CLOSE(")"), BRACE_OPEN("{"), BRACE_CLOSE("}"), SEMICOLON(";");
 
         private final String value;
 

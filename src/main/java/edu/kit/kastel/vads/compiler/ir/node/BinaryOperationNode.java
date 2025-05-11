@@ -38,9 +38,8 @@ public sealed abstract class BinaryOperationNode extends Node permits AddNode, D
         if (!(obj instanceof BinaryOperationNode binOp)) {
             return false;
         }
-        return obj.getClass() == this.getClass()
-            && this.predecessor(LEFT) == binOp.predecessor(LEFT)
-            && this.predecessor(RIGHT) == binOp.predecessor(RIGHT);
+        return obj.getClass() == this.getClass() && this.predecessor(LEFT) == binOp.predecessor(LEFT) &&
+               this.predecessor(RIGHT) == binOp.predecessor(RIGHT);
     }
 
     @Override

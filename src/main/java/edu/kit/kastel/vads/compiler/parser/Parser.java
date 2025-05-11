@@ -1,31 +1,10 @@
 package edu.kit.kastel.vads.compiler.parser;
 
-import edu.kit.kastel.vads.compiler.lexer.Identifier;
-import edu.kit.kastel.vads.compiler.lexer.Keyword;
-import edu.kit.kastel.vads.compiler.lexer.KeywordType;
-import edu.kit.kastel.vads.compiler.lexer.NumberLiteral;
-import edu.kit.kastel.vads.compiler.lexer.Operator;
-import edu.kit.kastel.vads.compiler.lexer.Operator.OperatorType;
-import edu.kit.kastel.vads.compiler.lexer.Separator;
-import edu.kit.kastel.vads.compiler.lexer.Separator.SeparatorType;
 import edu.kit.kastel.vads.compiler.Span;
-import edu.kit.kastel.vads.compiler.lexer.Token;
-import edu.kit.kastel.vads.compiler.parser.ast.AssignmentTree;
-import edu.kit.kastel.vads.compiler.parser.ast.BinaryOperationTree;
-import edu.kit.kastel.vads.compiler.parser.ast.BlockTree;
-import edu.kit.kastel.vads.compiler.parser.ast.DeclarationTree;
-import edu.kit.kastel.vads.compiler.parser.ast.ExpressionTree;
-import edu.kit.kastel.vads.compiler.parser.ast.FunctionTree;
-import edu.kit.kastel.vads.compiler.parser.ast.IdentExpressionTree;
-import edu.kit.kastel.vads.compiler.parser.ast.LValueIdentTree;
-import edu.kit.kastel.vads.compiler.parser.ast.LValueTree;
-import edu.kit.kastel.vads.compiler.parser.ast.LiteralTree;
-import edu.kit.kastel.vads.compiler.parser.ast.NameTree;
-import edu.kit.kastel.vads.compiler.parser.ast.NegateTree;
-import edu.kit.kastel.vads.compiler.parser.ast.ProgramTree;
-import edu.kit.kastel.vads.compiler.parser.ast.ReturnTree;
-import edu.kit.kastel.vads.compiler.parser.ast.StatementTree;
-import edu.kit.kastel.vads.compiler.parser.ast.TypeTree;
+import edu.kit.kastel.vads.compiler.lexer.*;
+import edu.kit.kastel.vads.compiler.lexer.Operator.OperatorType;
+import edu.kit.kastel.vads.compiler.lexer.Separator.SeparatorType;
+import edu.kit.kastel.vads.compiler.parser.ast.*;
 import edu.kit.kastel.vads.compiler.parser.symbol.Name;
 import edu.kit.kastel.vads.compiler.parser.type.BasicType;
 
@@ -53,11 +32,7 @@ public class Parser {
         this.tokenSource.expectSeparator(SeparatorType.PAREN_OPEN);
         this.tokenSource.expectSeparator(SeparatorType.PAREN_CLOSE);
         BlockTree body = parseBlock();
-        return new FunctionTree(
-            new TypeTree(BasicType.INT, returnType.span()),
-            name(identifier),
-            body
-        );
+        return new FunctionTree(new TypeTree(BasicType.INT, returnType.span()), name(identifier), body);
     }
 
     private BlockTree parseBlock() {
@@ -134,8 +109,9 @@ public class Parser {
     private ExpressionTree parseExpression() {
         ExpressionTree lhs = parseTerm();
         while (true) {
-            if (this.tokenSource.peek() instanceof Operator(var type, _)
-                && (type == OperatorType.PLUS || type == OperatorType.MINUS)) {
+            if (this.tokenSource.peek() instanceof Operator(
+                    var type, _
+            ) && (type == OperatorType.PLUS || type == OperatorType.MINUS)) {
                 this.tokenSource.consume();
                 lhs = new BinaryOperationTree(lhs, parseTerm(), type);
             } else {
@@ -147,8 +123,9 @@ public class Parser {
     private ExpressionTree parseTerm() {
         ExpressionTree lhs = parseFactor();
         while (true) {
-            if (this.tokenSource.peek() instanceof Operator(var type, _)
-                && (type == OperatorType.MUL || type == OperatorType.DIV || type == OperatorType.MOD)) {
+            if (this.tokenSource.peek() instanceof Operator(
+                    var type, _
+            ) && (type == OperatorType.MUL || type == OperatorType.DIV || type == OperatorType.MOD)) {
                 this.tokenSource.consume();
                 lhs = new BinaryOperationTree(lhs, parseFactor(), type);
             } else {

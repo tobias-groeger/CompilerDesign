@@ -13,6 +13,7 @@ import edu.kit.kastel.vads.compiler.parser.ast.FunctionTree;
 import edu.kit.kastel.vads.compiler.parser.ast.ProgramTree;
 import edu.kit.kastel.vads.compiler.semantic.SemanticAnalysis;
 import edu.kit.kastel.vads.compiler.semantic.SemanticException;
+
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -68,9 +69,6 @@ public class Main {
     }
 
     private static void dumpGraph(IrGraph graph, Path path, String key) throws IOException {
-        Files.writeString(
-            path.resolve(graph.name() + "-" + key + ".vcg"),
-            YCompPrinter.print(graph)
-        );
+        Files.writeString(path.resolve(graph.name() + "-" + key + ".vcg"), YCompPrinter.print(graph));
     }
 }

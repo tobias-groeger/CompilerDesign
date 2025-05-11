@@ -1,14 +1,8 @@
 package edu.kit.kastel.vads.compiler.parser;
 
-import edu.kit.kastel.vads.compiler.lexer.Identifier;
-import edu.kit.kastel.vads.compiler.lexer.Keyword;
-import edu.kit.kastel.vads.compiler.lexer.KeywordType;
-import edu.kit.kastel.vads.compiler.lexer.Lexer;
-import edu.kit.kastel.vads.compiler.lexer.Operator;
+import edu.kit.kastel.vads.compiler.lexer.*;
 import edu.kit.kastel.vads.compiler.lexer.Operator.OperatorType;
-import edu.kit.kastel.vads.compiler.lexer.Separator;
 import edu.kit.kastel.vads.compiler.lexer.Separator.SeparatorType;
-import edu.kit.kastel.vads.compiler.lexer.Token;
 
 import java.util.List;
 import java.util.Optional;
@@ -19,10 +13,7 @@ public class TokenSource {
     private int idx;
 
     public TokenSource(Lexer lexer) {
-        this.tokens = Stream.generate(lexer::nextToken)
-            .takeWhile(Optional::isPresent)
-            .map(Optional::orElseThrow)
-            .toList();
+        this.tokens = Stream.generate(lexer::nextToken).takeWhile(Optional::isPresent).map(Optional::orElseThrow).toList();
     }
 
     TokenSource(List<Token> tokens) {
@@ -60,6 +51,7 @@ public class TokenSource {
         this.idx++;
         return op;
     }
+
     public Identifier expectIdentifier() {
         Token token = peek();
         if (!(token instanceof Identifier ident)) {

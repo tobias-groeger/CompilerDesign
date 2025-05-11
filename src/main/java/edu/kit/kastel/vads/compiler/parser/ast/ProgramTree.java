@@ -10,6 +10,7 @@ public record ProgramTree(List<FunctionTree> topLevelTrees) implements Tree {
         assert !topLevelTrees.isEmpty() : "must be non-empty";
         topLevelTrees = List.copyOf(topLevelTrees);
     }
+
     @Override
     public Span span() {
         var first = topLevelTrees.getFirst();

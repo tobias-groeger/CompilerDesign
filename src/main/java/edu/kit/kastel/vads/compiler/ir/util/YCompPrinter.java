@@ -1,27 +1,11 @@
 package edu.kit.kastel.vads.compiler.ir.util;
 
 import edu.kit.kastel.vads.compiler.ir.IrGraph;
-import edu.kit.kastel.vads.compiler.ir.node.BinaryOperationNode;
-import edu.kit.kastel.vads.compiler.ir.node.Block;
-import edu.kit.kastel.vads.compiler.ir.node.ConstIntNode;
-import edu.kit.kastel.vads.compiler.ir.node.Node;
-import edu.kit.kastel.vads.compiler.ir.node.Phi;
-import edu.kit.kastel.vads.compiler.ir.node.ProjNode;
+import edu.kit.kastel.vads.compiler.ir.node.*;
 import edu.kit.kastel.vads.compiler.ir.node.ProjNode.SimpleProjectionInfo;
-import edu.kit.kastel.vads.compiler.ir.node.ReturnNode;
-import edu.kit.kastel.vads.compiler.ir.node.StartNode;
 
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.IdentityHashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.Map.Entry;
-import java.util.Optional;
-import java.util.Set;
-import java.util.StringJoiner;
 import java.util.stream.IntStream;
 
 public class YCompPrinter {
@@ -42,11 +26,7 @@ public class YCompPrinter {
         }
 
         if (!(node instanceof Block)) {
-            this.clusters.computeIfAbsent(
-                    node.block(),
-                    _ -> Collections.newSetFromMap(new IdentityHashMap<>())
-                )
-                .add(node);
+            this.clusters.computeIfAbsent(node.block(), _ -> Collections.newSetFromMap(new IdentityHashMap<>())).add(node);
         }
         for (Node predecessor : node.predecessors()) {
             prepare(predecessor, seen);
@@ -70,12 +50,12 @@ public class YCompPrinter {
         result.append("\n  title: ").append('"').append(graphName).append('"').append("\n");
 
         result.append("""
-            display_edge_labels: yes
-            layoutalgorithm: mindepth //$ "Compilergraph"
-            manhattan_edges: yes
-            port_sharing: no
-            orientation: top_to_bottom
-            """.indent(2));
+                              display_edge_labels: yes
+                              layoutalgorithm: mindepth //$ "Compilergraph"
+                              manhattan_edges: yes
+                              port_sharing: no
+                              orientation: top_to_bottom
+                              """.indent(2));
 
         for (VcgColor color : VcgColor.values()) {
             result.append("\n  colorentry ").append(color.id()).append(": ").append(color.getRgb());
@@ -143,12 +123,7 @@ public class YCompPrinter {
 
     private String formatInputEdges(Node node) {
         var edges = IntStream.range(0, node.predecessors().size())
-            .mapToObj(
-                idx -> new Edge(
-                    node.predecessor(idx), node, idx, edgeColor(node.predecessor(idx), node)
-                )
-            )
-            .toList();
+                .mapToObj(idx -> new Edge(node.predecessor(idx), node, idx, edgeColor(node.predecessor(idx), node))).toList();
         return formatEdges(edges, "\n  priority: 50");
     }
 
@@ -275,15 +250,8 @@ public class YCompPrinter {
         // colorentry 110: 127 127 127  dark gray
         // colorentry 111: 153 255 153  light green
         // colorentry 114: 153 153 255  blue
-        CONTROL_FLOW("255 153 153"),
-        MEMORY("153 153 255"),
-        NORMAL("242 242 242"),
-        SPECIAL("255 153 255"),
-        CONST("255 255 153"),
-        PHI("153 255 153"),
-        ROOT_BLOCK("204 204 204"),
-        BLOCK("222 239 234"),
-        SCHEDULE("255 153 255");
+        CONTROL_FLOW("255 153 153"), MEMORY("153 153 255"), NORMAL("242 242 242"), SPECIAL("255 153 255"), CONST("255 255 153"),
+        PHI("153 255 153"), ROOT_BLOCK("204 204 204"), BLOCK("222 239 234"), SCHEDULE("255 153 255");
 
         private final String rgb;
 

@@ -1,11 +1,7 @@
 package edu.kit.kastel.vads.compiler.semantic;
 
 import edu.kit.kastel.vads.compiler.lexer.Operator;
-import edu.kit.kastel.vads.compiler.parser.ast.AssignmentTree;
-import edu.kit.kastel.vads.compiler.parser.ast.DeclarationTree;
-import edu.kit.kastel.vads.compiler.parser.ast.IdentExpressionTree;
-import edu.kit.kastel.vads.compiler.parser.ast.LValueIdentTree;
-import edu.kit.kastel.vads.compiler.parser.ast.NameTree;
+import edu.kit.kastel.vads.compiler.parser.ast.*;
 import edu.kit.kastel.vads.compiler.parser.visitor.NoOpVisitor;
 import edu.kit.kastel.vads.compiler.parser.visitor.Unit;
 import org.jspecify.annotations.Nullable;
@@ -59,9 +55,7 @@ class VariableStatusAnalysis implements NoOpVisitor<Namespace<VariableStatusAnal
     @Override
     public Unit visit(DeclarationTree declarationTree, Namespace<VariableStatus> data) {
         checkUndeclared(declarationTree.name(), data.get(declarationTree.name()));
-        VariableStatus status = declarationTree.initializer() == null
-            ? VariableStatus.DECLARED
-            : VariableStatus.INITIALIZED;
+        VariableStatus status = declarationTree.initializer() == null ? VariableStatus.DECLARED : VariableStatus.INITIALIZED;
         updateStatus(data, status, declarationTree.name());
         return NoOpVisitor.super.visit(declarationTree, data);
     }
@@ -83,8 +77,7 @@ class VariableStatusAnalysis implements NoOpVisitor<Namespace<VariableStatusAnal
     }
 
     enum VariableStatus {
-        DECLARED,
-        INITIALIZED;
+        DECLARED, INITIALIZED;
 
         @Override
         public String toString() {

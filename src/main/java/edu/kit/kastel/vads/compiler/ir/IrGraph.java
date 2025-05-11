@@ -3,11 +3,7 @@ package edu.kit.kastel.vads.compiler.ir;
 import edu.kit.kastel.vads.compiler.ir.node.Block;
 import edu.kit.kastel.vads.compiler.ir.node.Node;
 
-import java.util.IdentityHashMap;
-import java.util.LinkedHashSet;
-import java.util.Map;
-import java.util.SequencedSet;
-import java.util.Set;
+import java.util.*;
 
 public class IrGraph {
     private final Map<Node, SequencedSet<Node>> successors = new IdentityHashMap<>();

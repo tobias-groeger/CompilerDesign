@@ -58,8 +58,7 @@ public class Lexer {
 
     private @Nullable ErrorToken skipWhitespace() {
         enum CommentType {
-            SINGLE_LINE,
-            MULTI_LINE
+            SINGLE_LINE, MULTI_LINE
         }
         CommentType currentCommentType = null;
         int multiLineCommentDepth = 0;
@@ -174,10 +173,7 @@ public class Lexer {
     }
 
     private boolean isIdentifierChar(char c) {
-        return c == '_'
-            || c >= 'a' && c <= 'z'
-            || c >= 'A' && c <= 'Z'
-            || c >= '0' && c <= '9';
+        return c == '_' || c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9';
     }
 
     private boolean isNumeric(char c) {

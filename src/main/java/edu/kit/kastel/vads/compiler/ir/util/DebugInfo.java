@@ -8,5 +8,6 @@ public sealed interface DebugInfo {
         INSTANCE
     }
 
-    record SourceInfo(Span span) implements DebugInfo {}
+    record SourceInfo(Span span) implements DebugInfo {
+    }
 }

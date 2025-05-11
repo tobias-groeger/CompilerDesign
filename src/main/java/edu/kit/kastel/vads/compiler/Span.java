@@ -2,6 +2,7 @@ package edu.kit.kastel.vads.compiler;
 
 public sealed interface Span {
     Position start();
+
     Position end();
 
     Span merge(Span later);
