@@ -1,6 +1,6 @@
 package edu.kit.kastel.vads.compiler;
 
-import edu.kit.kastel.vads.compiler.backend.aasm.CodeGenerator;
+import edu.kit.kastel.vads.compiler.backend.x86_64.CodeGenerator;
 import edu.kit.kastel.vads.compiler.ir.IrGraph;
 import edu.kit.kastel.vads.compiler.ir.SsaTranslation;
 import edu.kit.kastel.vads.compiler.ir.optimize.LocalValueNumbering;
@@ -14,7 +14,7 @@ import edu.kit.kastel.vads.compiler.parser.ast.ProgramTree;
 import edu.kit.kastel.vads.compiler.semantic.SemanticAnalysis;
 import edu.kit.kastel.vads.compiler.semantic.SemanticException;
 
-import java.io.IOException;
+import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -51,8 +51,37 @@ public class Main {
         }
 
         // TODO: generate assembly and invoke gcc instead of generating abstract assembly
-        String s = new CodeGenerator().generateCode(graphs);
-        Files.writeString(output, s);
+        String generatedAssembly = new CodeGenerator().generateCode(graphs);
+        System.out.println(generatedAssembly);
+
+        try {
+            Process assembler =
+                    new ProcessBuilder("gcc", "-o", output.toAbsolutePath().toString(), "-x", "assembler", "-").redirectErrorStream(true)
+                            .start();
+            try (BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(assembler.getOutputStream()))) {
+                // write the generated assembly to stdin of gcc
+                writer.write(generatedAssembly);
+                writer.flush();
+            }
+
+            int exitCode = assembler.waitFor();
+            if (exitCode != 0) {
+                // when assembler fails, read its output and print it to stderr
+                System.err.println("Error during assembler phase:");
+                try (BufferedReader reader = new BufferedReader(new InputStreamReader(assembler.getInputStream()))) {
+                    String line;
+                    while ((line = reader.readLine()) != null) {
+                        System.err.println(line);
+                    }
+                }
+                System.exit(4);
+            }
+
+        } catch (UnsupportedOperationException | IOException | InterruptedException e) {
+            // some error occurred during assembling
+            e.printStackTrace();
+            System.exit(4);
+        }
     }
 
     private static ProgramTree lexAndParse(Path input) throws IOException {
