@@ -38,16 +38,13 @@ public class CodeGenerator {
         }
 
         switch (node) {
-            case AddNode add -> binary(builder, registers, add, "addq");
-            case SubNode sub -> binary(builder, registers, sub, "subq");
-            case MulNode mul -> binary(builder, registers, mul, "mulq");
-            case DivNode div -> binary(builder, registers, div, "divq");
-            case ModNode mod -> binary(builder, registers, mod, "modq");
-            case ReturnNode r -> {
-                builder.repeat(" ", 2).append("movq ").append(registers.get(predecessorSkipProj(r, ReturnNode.RESULT))).append(", %rax\n");
-                builder.repeat(" ", 2).append("ret");
-            }
-            case ConstIntNode c -> builder.repeat(" ", 2).append("movq $").append(c.value()).append(", ").append(registers.get(c));
+            case AddNode add -> binary(builder, registers, add, "add");
+            case SubNode sub -> binary(builder, registers, sub, "sub");
+            case MulNode mul -> binary(builder, registers, mul, "mul");
+            case DivNode div -> binary(builder, registers, div, "div");
+            case ModNode mod -> binary(builder, registers, mod, "mod");
+            case ReturnNode r -> builder.repeat(" ", 2).append("ret ").append(registers.get(predecessorSkipProj(r, ReturnNode.RESULT)));
+            case ConstIntNode c -> builder.repeat(" ", 2).append(registers.get(c)).append(" = const ").append(c.value());
             case Phi _ -> throw new UnsupportedOperationException("phi");
             case Block _, ProjNode _, StartNode _ -> {
                 // do nothing, skip line break
@@ -58,11 +55,8 @@ public class CodeGenerator {
     }
 
     private static void binary(StringBuilder builder, Map<Node, Register> registers, BinaryOperationNode node, String opcode) {
-        builder.repeat(" ", 2).append(opcode).append(" ")
-
-                .append(registers.get(predecessorSkipProj(node, BinaryOperationNode.LEFT))).append(", ")
-                .append(registers.get(predecessorSkipProj(node, BinaryOperationNode.RIGHT))).append(", ")
-
-                .append(registers.get(node));
+        builder.repeat(" ", 2).append(registers.get(node)).append(" = ").append(opcode).append(" ")
+                .append(registers.get(predecessorSkipProj(node, BinaryOperationNode.LEFT))).append(" ")
+                .append(registers.get(predecessorSkipProj(node, BinaryOperationNode.RIGHT)));
     }
 }
