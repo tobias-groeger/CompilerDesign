@@ -17,6 +17,7 @@ public class GraphColoringRegisterAllocator implements RegisterAllocator {
 
     private final Map<AbstractRegister, ActualRegister> registers = new HashMap<>();
     private final Map<AbstractRegister, Set<ActualRegister>> taint = new HashMap<>();
+    private final Map<AbstractRegister, ActualRegister> requestedRegister = new HashMap<>();
 
     public GraphColoringRegisterAllocator(List<AbstractInstruction> aasm, InterferenceGraph graph) {
         this.aasm = aasm;
@@ -49,17 +50,17 @@ public class GraphColoringRegisterAllocator implements RegisterAllocator {
                     }
                     if (op == BinaryInstruction.Op.MUL || op == BinaryInstruction.Op.DIV) {
                         // mul places lower bits of result in eax, div has quotient in eax
-                        registers.putIfAbsent(dest, ActualRegister.eax());
+                        requestedRegister.putIfAbsent(dest, ActualRegister.eax());
                     } else {
                         // div has remainder in edx
-                        registers.putIfAbsent(dest, ActualRegister.edx());
+                        requestedRegister.putIfAbsent(dest, ActualRegister.edx());
                     }
 
                     if (lhs instanceof AbstractRegister lhsReg) {
                         if (W.remove(lhsReg) != null) {
                             simplicialOrdering.add(lhsReg);
                         }
-                        registers.putIfAbsent(lhsReg, ActualRegister.eax());
+                        requestedRegister.putIfAbsent(lhsReg, ActualRegister.eax());
                         taint.computeIfAbsent(lhsReg, _ -> new HashSet<>()).addAll(Set.of(ActualRegister.eax(), ActualRegister.edx()));
                     } else {
                         throw new UnsupportedOperationException("MUL, DIV and MOD do not support immediate lhs operand");
@@ -112,6 +113,12 @@ public class GraphColoringRegisterAllocator implements RegisterAllocator {
                 usedInNeighborhood.addAll(taint.getOrDefault(n, Set.of()));
             }
 
+            ActualRegister requested = requestedRegister.get(reg);
+            if (requested != null && !usedInNeighborhood.contains(requested)) {
+                registers.put(reg, requested);
+                continue;
+            }
+
             int available = 0;
             boolean assigned = false;
             for (var used : usedInNeighborhood) {
@@ -143,5 +150,5 @@ public class GraphColoringRegisterAllocator implements RegisterAllocator {
     public ActualRegister registerOf(AbstractRegister register) {
         return registers.get(register);
     }
-    
+
 }
