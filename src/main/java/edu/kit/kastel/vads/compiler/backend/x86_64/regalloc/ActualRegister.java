@@ -5,7 +5,8 @@ import java.util.List;
 public record ActualRegister(int id) implements Comparable<ActualRegister> {
 
     private static final List<String> REGISTERS =
-            List.of("rax", "rbx", "rcx", "rdx", "rsi", "rdi", /*"rbp", "rsp",*/ "r8", "r9", "r10",/* "r11", "r12", */"r13", "r14", "r15");
+            List.of("eax", "ebx", "ecx", "edx", "esi", "edi", /*"ebp", "esp",*/ "r8d", "r9d", "r10d",/* "r11d", "r12d", "r13d",*/ "r14d",
+                    "r15d");
 
     public static ActualRegister eax() {
         return new ActualRegister(0);
@@ -20,7 +21,8 @@ public record ActualRegister(int id) implements Comparable<ActualRegister> {
     }
 
     public static ActualRegister spare(int index) {
-        return new ActualRegister(-index);
+        if (index < 0) throw new UnsupportedOperationException("Invalid spare index: " + index);
+        return new ActualRegister(-index - 1);
     }
 
     public int spillIndex() {
@@ -29,17 +31,15 @@ public record ActualRegister(int id) implements Comparable<ActualRegister> {
 
     @Override
     public String toString() {
-        if (id == -1) {
-            return "%r11";
-        }
-        if (id == -2) {
-            return "%r12";
-        }
+        if (id == -1) return "%r11d";
+        if (id == -2) return "%r12d";
+        if (id == -3) return "%r13d";
 
-        if (id < 0 || id >= REGISTERS.size()) {
-            throw new UnsupportedOperationException("Too many registers required: " + (id + 1));
-        }
-        return "%" + REGISTERS.get(id());
+        if (id < 0) throw new UnsupportedOperationException("Invalid register id: " + (id + 1));
+
+        if (id < REGISTERS.size()) return "%" + REGISTERS.get(id());
+
+        return "%spill<" + id() + ">";
     }
 
     @Override

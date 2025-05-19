@@ -2,7 +2,6 @@ package edu.kit.kastel.vads.compiler.backend.x86_64;
 
 import edu.kit.kastel.vads.compiler.Constants;
 import edu.kit.kastel.vads.compiler.backend.aasm.AbstractImmediate;
-import edu.kit.kastel.vads.compiler.backend.aasm.AbstractOperand;
 import edu.kit.kastel.vads.compiler.backend.aasm.AbstractRegister;
 import edu.kit.kastel.vads.compiler.backend.aasm.instructions.*;
 import edu.kit.kastel.vads.compiler.backend.optimization.Optimization;
@@ -74,50 +73,49 @@ public class CodeGenerator {
 
     private static String mapOp(BinaryInstruction.Op op) {
         return switch (op) {
-            case BinaryInstruction.Op.ADD -> "addq";
-            case BinaryInstruction.Op.DIV -> "idivq";
-            case BinaryInstruction.Op.MOD -> "idivq";
-            case BinaryInstruction.Op.MUL -> "mulq";
-            case BinaryInstruction.Op.SUB -> "subq";
+            case BinaryInstruction.Op.ADD -> "addl";
+            case BinaryInstruction.Op.DIV -> "idivl";
+            case BinaryInstruction.Op.MOD -> "idivl";
+            case BinaryInstruction.Op.MUL -> "mull";
+            case BinaryInstruction.Op.SUB -> "subl";
         };
-    }
-
-    private String mapRegOrImm(AbstractOperand operand, RegisterAllocator allocator) {
-        if (operand instanceof AbstractImmediate(int value)) {
-            return "$" + value;
-        } else if (operand instanceof AbstractRegister reg) {
-            return allocator.registerOf(reg).toString();
-        }
-        throw new UnsupportedOperationException();
     }
 
     private void emitCode(StringBuilder b, AbstractInstruction instruction, RegisterAllocator allocator) {
         switch (instruction) {
             // binary instruction with special registers (mul, div, mod)
-            case BinaryInstruction(BinaryInstruction.Op op, var dest, AbstractRegister lhs, AbstractRegister rhs) when
+            case BinaryInstruction(BinaryInstruction.Op op, var destIn, AbstractRegister lhsIn, AbstractRegister rhsIn) when
                     op == BinaryInstruction.Op.MUL || op == BinaryInstruction.Op.DIV || op == BinaryInstruction.Op.MOD -> {
 
-                if (!allocator.registerOf(lhs).equals(ActualRegister.eax())) {
-                    b.append("movq ").append(allocator.registerOf(lhs)).append(", %rax\n");
+                ActualRegister lhs = unspill(allocator.registerOf(lhsIn), b, 0, true);
+                ActualRegister rhs = unspill(allocator.registerOf(rhsIn), b, 1, true);
+                ActualRegister dest = unspill(allocator.registerOf(destIn), b, 2, false);
+
+                if (!lhs.equals(ActualRegister.eax())) {
+                    b.append("movl ").append(lhs).append(", %eax\n");
                 }
                 b.append("cltd\n");
-                b.append(mapOp(op)).append(" ").append(allocator.registerOf(rhs)).append("\n");
+                b.append(mapOp(op)).append(" ").append(rhs).append("\n");
 
-                if ((op == BinaryInstruction.Op.MUL || op == BinaryInstruction.Op.DIV) &&
-                    !allocator.registerOf(dest).equals(ActualRegister.eax())) {
+                if ((op == BinaryInstruction.Op.MUL || op == BinaryInstruction.Op.DIV) && !dest.equals(ActualRegister.eax())) {
                     // mul places lower bits of result in eax, div has quotient in eax
-                    b.append("movq %rax, ").append(allocator.registerOf(dest)).append("\n");
-                } else if (op == BinaryInstruction.Op.MOD && !allocator.registerOf(dest).equals(ActualRegister.edx())) {
+                    b.append("movl %eax, ").append(dest).append("\n");
+                } else if (op == BinaryInstruction.Op.MOD && !dest.equals(ActualRegister.edx())) {
                     // div has remainder in edx
-                    b.append("movq %rdx, ").append(allocator.registerOf(dest)).append("\n");
+                    b.append("movl %edx, ").append(dest).append("\n");
                 }
+
+                respill(allocator.registerOf(lhsIn), b, 0);
+                respill(allocator.registerOf(rhsIn), b, 1);
+                respill(allocator.registerOf(destIn), b, 2);
             }
             // binary instruction with lhs and rhs from a register
-            case BinaryInstruction(BinaryInstruction.Op op, var dest, AbstractRegister lhs, AbstractRegister rhs) when
+            case BinaryInstruction(BinaryInstruction.Op op, var destIn, AbstractRegister lhsIn, AbstractRegister rhsIn) when
                     op == BinaryInstruction.Op.ADD || op == BinaryInstruction.Op.SUB -> {
-                ActualRegister d = allocator.registerOf(dest);
-                ActualRegister x = allocator.registerOf(lhs);
-                ActualRegister y = allocator.registerOf(rhs);
+
+                ActualRegister x = unspill(allocator.registerOf(lhsIn), b, 0, true);
+                ActualRegister y = unspill(allocator.registerOf(rhsIn), b, 1, true);
+                ActualRegister d = unspill(allocator.registerOf(destIn), b, 2, false);
 
                 if (d.equals(x) && d.equals(y)) {
                     // d <- d x d
@@ -130,56 +128,84 @@ public class CodeGenerator {
 
                     // for subtraction: 'sub src dst' <==> dst := dst - src
                     // if dst == rhs, we have to first save rhs -> spare
-                    b.append("movq ").append(d).append(", ").append(ActualRegister.spare()).append("\n");
-                    b.append("movq ").append(x).append(", ").append(d).append("\n");
+                    b.append("movl ").append(d).append(", ").append(ActualRegister.spare()).append("\n");
+                    b.append("movl ").append(x).append(", ").append(d).append("\n");
                     b.append(mapOp(op)).append(" ").append(ActualRegister.spare()).append(", ").append(d).append("\n");
                 } else if (d.equals(y) && op == BinaryInstruction.Op.ADD) {
                     // d <- % + d
                     b.append(mapOp(op)).append(" ").append(x).append(", ").append(d).append("\n");
                 } else {
-                    b.append("movq ").append(x).append(", ").append(d).append("\n");
+                    b.append("movl ").append(x).append(", ").append(d).append("\n");
                     b.append(mapOp(op)).append(" ").append(y).append(", ").append(d).append("\n");
                 }
+
+                respill(allocator.registerOf(lhsIn), b, 0);
+                respill(allocator.registerOf(rhsIn), b, 1);
+                respill(allocator.registerOf(destIn), b, 2);
             } // binary instruction with lhs from a register
-            case BinaryInstruction(BinaryInstruction.Op op, var dest, AbstractRegister lhs, AbstractImmediate rhs) when
+            case BinaryInstruction(BinaryInstruction.Op op, var destIn, AbstractRegister lhsIn, AbstractImmediate rhs) when
                     op == BinaryInstruction.Op.ADD || op == BinaryInstruction.Op.SUB -> {
-                ActualRegister d = allocator.registerOf(dest);
-                ActualRegister x = allocator.registerOf(lhs);
+                ActualRegister x = unspill(allocator.registerOf(lhsIn), b, 0, true);
+                ActualRegister d = unspill(allocator.registerOf(destIn), b, 1, false);
 
                 if (d.equals(x)) {
                     // for subtraction: 'sub src dst' <==> dst := dst - src
                     b.append(mapOp(op)).append(" $").append(rhs.value()).append(", ").append(d).append("\n");
                 } else {
-                    b.append("movq ").append(x).append(", ").append(d).append("\n");
+                    b.append("movl ").append(x).append(", ").append(d).append("\n");
                     b.append(mapOp(op)).append(" $").append(rhs.value()).append(", ").append(d).append("\n");
                 }
+
+                respill(allocator.registerOf(lhsIn), b, 0);
+                respill(allocator.registerOf(destIn), b, 1);
             }
             // binary instruction with rhs from a register
-            case BinaryInstruction(BinaryInstruction.Op op, var dest, AbstractImmediate lhs, AbstractRegister rhs) when
+            case BinaryInstruction(BinaryInstruction.Op op, var destIn, AbstractImmediate lhs, AbstractRegister rhsIn) when
                     op == BinaryInstruction.Op.ADD || op == BinaryInstruction.Op.SUB -> {
-                ActualRegister d = allocator.registerOf(dest);
-                ActualRegister y = allocator.registerOf(rhs);
+                ActualRegister y = unspill(allocator.registerOf(rhsIn), b, 0, true);
+                ActualRegister d = unspill(allocator.registerOf(destIn), b, 1, false);
 
                 if (d.equals(y) && op == BinaryInstruction.Op.SUB) {
                     // for subtraction: 'sub src dst' <==> dst := dst - src
                     // if dst == rhs, we have to first save rhs -> spare
-                    b.append("movq ").append(d).append(", ").append(ActualRegister.spare()).append("\n");
-                    b.append("movq $").append(lhs).append(", ").append(d).append("\n");
+                    b.append("movl ").append(d).append(", ").append(ActualRegister.spare()).append("\n");
+                    b.append("movl $").append(lhs).append(", ").append(d).append("\n");
                     b.append(mapOp(op)).append(" ").append(ActualRegister.spare()).append(", ").append(d).append("\n");
                 } else {
-                    b.append("movq $").append(lhs).append(", ").append(d).append("\n");
+                    b.append("movl $").append(lhs).append(", ").append(d).append("\n");
                     b.append(mapOp(op)).append(" ").append(y).append(", ").append(d).append("\n");
                 }
+
+                respill(allocator.registerOf(rhsIn), b, 0);
+                respill(allocator.registerOf(destIn), b, 1);
             }
             // binary instruction with two immediates
-            case BinaryInstruction(BinaryInstruction.Op op, var dest, AbstractImmediate lhs, AbstractImmediate rhs) when
+            case BinaryInstruction(BinaryInstruction.Op op, var destIn, AbstractImmediate lhs, AbstractImmediate rhs) when
                     op == BinaryInstruction.Op.ADD || op == BinaryInstruction.Op.SUB -> {
+                ActualRegister dest = unspill(allocator.registerOf(destIn), b, 0, false);
+
                 // for subtraction: 'sub src dst' <==> dst := dst - src
-                b.append("movq $").append(lhs.value()).append(", ").append(allocator.registerOf(dest)).append("\n");
-                b.append(mapOp(op)).append(" $").append(rhs.value()).append(", ").append(allocator.registerOf(dest)).append("\n");
+                b.append("movl $").append(lhs.value()).append(", ").append(dest).append("\n");
+                b.append(mapOp(op)).append(" $").append(rhs.value()).append(", ").append(dest).append("\n");
+
+                respill(allocator.registerOf(destIn), b, 0);
             }
-            case MoveInstruction(var dest, var src) ->
-                    b.append("movq ").append(mapRegOrImm(src, allocator)).append(", ").append(allocator.registerOf(dest)).append("\n");
+            case MoveInstruction(var destIn, AbstractRegister srcIn) -> {
+                ActualRegister src = unspill(allocator.registerOf(srcIn), b, 0, false);
+                ActualRegister dest = unspill(allocator.registerOf(destIn), b, 1, false);
+
+                b.append("movl ").append(src).append(", ").append(dest).append("\n");
+
+                respill(allocator.registerOf(srcIn), b, 0);
+                respill(allocator.registerOf(destIn), b, 1);
+            }
+            case MoveInstruction(var destIn, AbstractImmediate imm) -> {
+                ActualRegister dest = unspill(allocator.registerOf(destIn), b, 0, false);
+
+                b.append("movl $").append(imm.value()).append(", ").append(dest).append("\n");
+
+                respill(allocator.registerOf(destIn), b, 0);
+            }
             case NopInstruction _ -> {
             }
             case ReturnInstruction _ -> b.append("ret\n");
@@ -187,15 +213,27 @@ public class CodeGenerator {
         }
     }
 
-    private ActualRegister unspill(ActualRegister reg, StringBuilder b, int index) {
+    private ActualRegister unspill(ActualRegister reg, StringBuilder b, int index, boolean load) {
         int address = reg.spillIndex();
         if (address < 0) {
             return reg;
         }
+        address += 1;
 
         ActualRegister spillRegister = ActualRegister.spare(index);
-        b.append("movq ").append(address * 8).append("(%rsp), ").append(spillRegister).append("\n");
+        if (load) b.append("movl ").append(-4 * address).append("(%rsp), ").append(spillRegister).append("\n");
 
         return spillRegister;
+    }
+
+    private void respill(ActualRegister reg, StringBuilder b, int index) {
+        int address = reg.spillIndex();
+        if (address < 0) {
+            return;
+        }
+        address += 1;
+
+        ActualRegister spillRegister = ActualRegister.spare(index);
+        b.append("movl ").append(spillRegister).append(", ").append(-4 * address).append("(%rsp)\n");
     }
 }

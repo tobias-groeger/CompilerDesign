@@ -55,6 +55,7 @@ public class GraphColoringRegisterAllocator implements RegisterAllocator {
                         // div has remainder in edx
                         requestedRegister.putIfAbsent(dest, ActualRegister.edx());
                     }
+                    taint.computeIfAbsent(dest, _ -> new HashSet<>()).addAll(Set.of(ActualRegister.eax(), ActualRegister.edx()));
 
                     if (lhs instanceof AbstractRegister lhsReg) {
                         if (W.remove(lhsReg) != null) {
