@@ -93,6 +93,7 @@ public class CodeGenerator {
 
     private void emitCode(StringBuilder b, AbstractInstruction instruction, RegisterAllocator allocator) {
         switch (instruction) {
+            // binary instruction with special registers (mul, div, mod)
             case BinaryInstruction(BinaryInstruction.Op op, var dest, AbstractRegister lhs, AbstractRegister rhs) when
                     op == BinaryInstruction.Op.MUL || op == BinaryInstruction.Op.DIV || op == BinaryInstruction.Op.MOD -> {
 
@@ -111,11 +112,71 @@ public class CodeGenerator {
                     b.append("movq %rdx, ").append(allocator.registerOf(dest)).append("\n");
                 }
             }
-            case BinaryInstruction(BinaryInstruction.Op op, var dest, var lhs, var rhs) when op == BinaryInstruction.Op.ADD ||
-                                                                                             op == BinaryInstruction.Op.SUB -> {
-                b.append("movq ").append(mapRegOrImm(lhs, allocator)).append(", ").append(allocator.registerOf(dest)).append("\n");
-                b.append(mapOp(op)).append(" ").append(mapRegOrImm(rhs, allocator)).append(", ").append(allocator.registerOf(dest))
-                        .append("\n");
+            // binary instruction with lhs and rhs from a register
+            case BinaryInstruction(BinaryInstruction.Op op, var dest, AbstractRegister lhs, AbstractRegister rhs) when
+                    op == BinaryInstruction.Op.ADD || op == BinaryInstruction.Op.SUB -> {
+                ActualRegister d = allocator.registerOf(dest);
+                ActualRegister x = allocator.registerOf(lhs);
+                ActualRegister y = allocator.registerOf(rhs);
+
+                if (d.equals(x) && d.equals(y)) {
+                    // d <- d x d
+                    b.append(mapOp(op)).append(" ").append(d).append(", ").append(d).append("\n");
+                } else if (d.equals(x)) {
+                    // d <- d x %
+                    b.append(mapOp(op)).append(" ").append(y).append(", ").append(d).append("\n");
+                } else if (d.equals(y) && op == BinaryInstruction.Op.SUB) {
+                    // d <- % x d
+
+                    // for subtraction: 'sub src dst' <==> dst := dst - src
+                    // if dst == rhs, we have to first save rhs -> spare
+                    b.append("movq ").append(d).append(", ").append(ActualRegister.spare()).append("\n");
+                    b.append("movq ").append(x).append(", ").append(d).append("\n");
+                    b.append(mapOp(op)).append(" ").append(ActualRegister.spare()).append(", ").append(d).append("\n");
+                } else if (d.equals(y) && op == BinaryInstruction.Op.ADD) {
+                    // d <- % + d
+                    b.append(mapOp(op)).append(" ").append(x).append(", ").append(d).append("\n");
+                } else {
+                    b.append("movq ").append(x).append(", ").append(d).append("\n");
+                    b.append(mapOp(op)).append(" ").append(y).append(", ").append(d).append("\n");
+                }
+            } // binary instruction with lhs from a register
+            case BinaryInstruction(BinaryInstruction.Op op, var dest, AbstractRegister lhs, AbstractImmediate rhs) when
+                    op == BinaryInstruction.Op.ADD || op == BinaryInstruction.Op.SUB -> {
+                ActualRegister d = allocator.registerOf(dest);
+                ActualRegister x = allocator.registerOf(lhs);
+
+                if (d.equals(x)) {
+                    // for subtraction: 'sub src dst' <==> dst := dst - src
+                    b.append(mapOp(op)).append(" $").append(rhs.value()).append(", ").append(d).append("\n");
+                } else {
+                    b.append("movq ").append(x).append(", ").append(d).append("\n");
+                    b.append(mapOp(op)).append(" $").append(rhs.value()).append(", ").append(d).append("\n");
+                }
+            }
+            // binary instruction with rhs from a register
+            case BinaryInstruction(BinaryInstruction.Op op, var dest, AbstractImmediate lhs, AbstractRegister rhs) when
+                    op == BinaryInstruction.Op.ADD || op == BinaryInstruction.Op.SUB -> {
+                ActualRegister d = allocator.registerOf(dest);
+                ActualRegister y = allocator.registerOf(rhs);
+
+                if (d.equals(y) && op == BinaryInstruction.Op.SUB) {
+                    // for subtraction: 'sub src dst' <==> dst := dst - src
+                    // if dst == rhs, we have to first save rhs -> spare
+                    b.append("movq ").append(d).append(", ").append(ActualRegister.spare()).append("\n");
+                    b.append("movq $").append(lhs).append(", ").append(d).append("\n");
+                    b.append(mapOp(op)).append(" ").append(ActualRegister.spare()).append(", ").append(d).append("\n");
+                } else {
+                    b.append("movq $").append(lhs).append(", ").append(d).append("\n");
+                    b.append(mapOp(op)).append(" ").append(y).append(", ").append(d).append("\n");
+                }
+            }
+            // binary instruction with two immediates
+            case BinaryInstruction(BinaryInstruction.Op op, var dest, AbstractImmediate lhs, AbstractImmediate rhs) when
+                    op == BinaryInstruction.Op.ADD || op == BinaryInstruction.Op.SUB -> {
+                // for subtraction: 'sub src dst' <==> dst := dst - src
+                b.append("movq $").append(lhs.value()).append(", ").append(allocator.registerOf(dest)).append("\n");
+                b.append(mapOp(op)).append(" $").append(rhs.value()).append(", ").append(allocator.registerOf(dest)).append("\n");
             }
             case MoveInstruction(var dest, var src) ->
                     b.append("movq ").append(mapRegOrImm(src, allocator)).append(", ").append(allocator.registerOf(dest)).append("\n");
@@ -124,5 +185,17 @@ public class CodeGenerator {
             case ReturnInstruction _ -> b.append("ret\n");
             default -> throw new UnsupportedOperationException("No instructions for " + instruction + " available!");
         }
+    }
+
+    private ActualRegister unspill(ActualRegister reg, StringBuilder b, int index) {
+        int address = reg.spillIndex();
+        if (address < 0) {
+            return reg;
+        }
+
+        ActualRegister spillRegister = ActualRegister.spare(index);
+        b.append("movq ").append(address * 8).append("(%rsp), ").append(spillRegister).append("\n");
+
+        return spillRegister;
     }
 }
