@@ -94,8 +94,16 @@ public class CodeGenerator {
                 if (!lhs.equals(ActualRegister.eax())) {
                     b.append("movl ").append(lhs).append(", %eax\n");
                 }
-                b.append("cltd\n");
-                b.append(mapOp(op)).append(" ").append(rhs).append("\n");
+                if (rhs.equals(ActualRegister.edx())) {
+                    // rhs is in edx (will be overwritten by cltd): save it and write it back after
+                    b.append("movl %edx, ").append(ActualRegister.spare(1)).append("\n");
+                    b.append("cltd\n");
+                    b.append(mapOp(op)).append(" ").append(ActualRegister.spare(1)).append("\n");
+                    b.append("movl ").append(ActualRegister.spare(1)).append(", %edx\n");
+                } else {
+                    b.append("cltd\n");
+                    b.append(mapOp(op)).append(" ").append(rhs).append("\n");
+                }
 
                 if ((op == BinaryInstruction.Op.MUL || op == BinaryInstruction.Op.DIV) && !dest.equals(ActualRegister.eax())) {
                     // mul places lower bits of result in eax, div has quotient in eax
@@ -128,9 +136,9 @@ public class CodeGenerator {
 
                     // for subtraction: 'sub src dst' <==> dst := dst - src
                     // if dst == rhs, we have to first save rhs -> spare
-                    b.append("movl ").append(d).append(", ").append(ActualRegister.spare()).append("\n");
+                    b.append("movl ").append(d).append(", ").append(ActualRegister.spare(1)).append("\n");
                     b.append("movl ").append(x).append(", ").append(d).append("\n");
-                    b.append(mapOp(op)).append(" ").append(ActualRegister.spare()).append(", ").append(d).append("\n");
+                    b.append(mapOp(op)).append(" ").append(ActualRegister.spare(1)).append(", ").append(d).append("\n");
                 } else if (d.equals(y) && op == BinaryInstruction.Op.ADD) {
                     // d <- % + d
                     b.append(mapOp(op)).append(" ").append(x).append(", ").append(d).append("\n");
@@ -168,9 +176,9 @@ public class CodeGenerator {
                 if (d.equals(y) && op == BinaryInstruction.Op.SUB) {
                     // for subtraction: 'sub src dst' <==> dst := dst - src
                     // if dst == rhs, we have to first save rhs -> spare
-                    b.append("movl ").append(d).append(", ").append(ActualRegister.spare()).append("\n");
+                    b.append("movl ").append(d).append(", ").append(ActualRegister.spare(2)).append("\n");
                     b.append("movl $").append(lhs).append(", ").append(d).append("\n");
-                    b.append(mapOp(op)).append(" ").append(ActualRegister.spare()).append(", ").append(d).append("\n");
+                    b.append(mapOp(op)).append(" ").append(ActualRegister.spare(2)).append(", ").append(d).append("\n");
                 } else {
                     b.append("movl $").append(lhs).append(", ").append(d).append("\n");
                     b.append(mapOp(op)).append(" ").append(y).append(", ").append(d).append("\n");
