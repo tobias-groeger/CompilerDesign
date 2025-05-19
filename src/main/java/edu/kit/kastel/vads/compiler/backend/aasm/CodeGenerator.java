@@ -1,62 +1,71 @@
 package edu.kit.kastel.vads.compiler.backend.aasm;
 
-import edu.kit.kastel.vads.compiler.backend.regalloc.Register;
+import edu.kit.kastel.vads.compiler.Constants;
+import edu.kit.kastel.vads.compiler.backend.aasm.instructions.AbstractInstruction;
+import edu.kit.kastel.vads.compiler.backend.aasm.rules.*;
 import edu.kit.kastel.vads.compiler.ir.IrGraph;
-import edu.kit.kastel.vads.compiler.ir.node.*;
+import edu.kit.kastel.vads.compiler.ir.node.Node;
 
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-
-import static edu.kit.kastel.vads.compiler.ir.util.NodeSupport.predecessorSkipProj;
+import java.util.*;
 
 public class CodeGenerator {
+    private static final List<Pattern> RULES =
+            List.of(new SkipRule(), new BinaryOperatorPattern(), new ReturnOperation(), new ImmediateRule(), new NoRuleFoundSentinel());
 
-    public String generateCode(List<IrGraph> program) {
-        StringBuilder builder = new StringBuilder();
+    public List<AbstractInstruction> generateCode(List<IrGraph> program) {
+        List<AbstractInstruction> instructions = new ArrayList<>();
         for (IrGraph graph : program) {
             AasmRegisterAllocator allocator = new AasmRegisterAllocator();
-            Map<Node, Register> registers = allocator.allocateRegisters(graph);
-            builder.append("function ").append(graph.name()).append(" {\n");
-            generateForGraph(graph, builder, registers);
-            builder.append("}");
+            instructions.addAll(generateForGraph(graph, allocator));
         }
-        return builder.toString();
+
+        if (Constants.DEBUG) {
+            System.out.println("AASM");
+            for (int i = 0; i < instructions.size(); i++) {
+                System.out.println((i + 1) + ": " + instructions.get(i));
+            }
+            System.out.println("===");
+        }
+
+        return instructions;
     }
 
-    private void generateForGraph(IrGraph graph, StringBuilder builder, Map<Node, Register> registers) {
+    private List<AbstractInstruction> generateForGraph(IrGraph graph, AasmRegisterAllocator allocator) {
+        List<AbstractInstruction> instructions = new ArrayList<>();
+        Map<Node, Pattern.Gen> patterns = new HashMap<>();
         Set<Node> visited = new HashSet<>();
-        scan(graph.endBlock(), visited, builder, registers);
+        scan(graph.endBlock(), instructions, patterns, visited, allocator);
+
+        return instructions;
     }
 
-    private void scan(Node node, Set<Node> visited, StringBuilder builder, Map<Node, Register> registers) {
+    private void scan(Node node, List<AbstractInstruction> instructions, Map<Node, Pattern.Gen> patterns, Set<Node> visited,
+                      AasmRegisterAllocator allocator) {
+        if (!visited.add(node)) {
+            return; // this node was already encountered
+        }
+
+        // maximal munch
+        for (Pattern rule : RULES) {
+            var result = rule.apply(node, patterns, allocator);
+            if (result.isPresent()) {
+                // this rule was applied, mark all nodes covered by it as visited
+                visited.addAll(result.get());
+                break; // don't check any more rules
+            }
+        }
+        // the NoRuleFoundSentinel will ensure we will always apply a rule or throw
+
+        // run recursively on all nodes before this one
         for (Node predecessor : node.predecessors()) {
-            if (visited.add(predecessor)) {
-                scan(predecessor, visited, builder, registers);
-            }
+            scan(predecessor, instructions, patterns, visited, allocator);
         }
 
-        switch (node) {
-            case AddNode add -> binary(builder, registers, add, "add");
-            case SubNode sub -> binary(builder, registers, sub, "sub");
-            case MulNode mul -> binary(builder, registers, mul, "mul");
-            case DivNode div -> binary(builder, registers, div, "div");
-            case ModNode mod -> binary(builder, registers, mod, "mod");
-            case ReturnNode r -> builder.repeat(" ", 2).append("ret ").append(registers.get(predecessorSkipProj(r, ReturnNode.RESULT)));
-            case ConstIntNode c -> builder.repeat(" ", 2).append(registers.get(c)).append(" = const ").append(c.value());
-            case Phi _ -> throw new UnsupportedOperationException("phi");
-            case Block _, ProjNode _, StartNode _ -> {
-                // do nothing, skip line break
-                return;
-            }
+        // add instructions required for this node
+        Pattern.Gen codeGen = patterns.get(node);
+        if (codeGen != null) {
+            instructions.addAll(codeGen.code());
         }
-        builder.append("\n");
     }
 
-    private static void binary(StringBuilder builder, Map<Node, Register> registers, BinaryOperationNode node, String opcode) {
-        builder.repeat(" ", 2).append(registers.get(node)).append(" = ").append(opcode).append(" ")
-                .append(registers.get(predecessorSkipProj(node, BinaryOperationNode.LEFT))).append(" ")
-                .append(registers.get(predecessorSkipProj(node, BinaryOperationNode.RIGHT)));
-    }
 }

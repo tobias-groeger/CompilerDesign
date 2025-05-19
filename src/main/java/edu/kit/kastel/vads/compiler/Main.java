@@ -52,7 +52,9 @@ public class Main {
 
         // TODO: generate assembly and invoke gcc instead of generating abstract assembly
         String generatedAssembly = new CodeGenerator().generateCode(graphs);
-        System.out.println(generatedAssembly);
+        if (Constants.DEBUG) {
+            System.out.println(generatedAssembly);
+        }
 
         try {
             Process assembler =

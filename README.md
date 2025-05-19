@@ -71,7 +71,8 @@ To figure out the cause, we provide utilities that ease debugging.
   subgraphs, or https://www.yworks.com/yed-live/, which is relatively good at
   neighbourhoods and larger layouts) that can visualize that output.
   It allows debugging anything related to the IR.
-- `edu.kit.kastel.vads.compiler.ir.util.YCompPrinter` can generate output for [yComp](https://pp.ipd.kit.edu/firm/yComp.html).
+- `edu.kit.kastel.vads.compiler.ir.util.YCompPrinter` can generate output
+  for [yComp](https://pp.ipd.kit.edu/firm/yComp.html).
   This tool is more sophisticated than GraphViz. See below for further information.
 
 We also try to keep track of source positions as much as possible through the compiler.
@@ -81,6 +82,7 @@ You can get rid of all that, but it can be helpful to track down where something
 
 To use yComp, you need to patch the provided start script to make it work with modern Java versions.
 You can copy-paste the following script:
+
 ```sh
 #!/bin/sh
 set -e
@@ -127,3 +129,7 @@ This project provides the wrapper for Gradle 8.14.
 Additionally, the `application` plugin is used to easily specify the main class and build ready-to-use executables.
 To ease setup ceremony,
 the `foojay-resolver-convention` is used to automatically download a JDK matching the toolchain configuration.
+
+# Libraries
+
+- [JGraphT](https://github.com/jgrapht/jgrapht) 
